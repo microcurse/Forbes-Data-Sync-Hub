@@ -37,55 +37,50 @@ spl_autoload_register( function ( $class_name ) {
     // Only autoload classes from this plugin.
     if ( strpos( $class_name, 'FDSH_' ) === 0 || strpos( $class_name, 'ForbesDataSyncHub\\' ) === 0 ) {
         // Replace namespace separators with directory separators.
-        $file_path = str_replace( '\\', '/', $class_name );
+        $file_path_segment = str_replace( '\\', '/', $class_name );
+        $class_file_base = 'class-' . strtolower( str_replace( '_', '-', $class_name ) ) . '.php'; // e.g. class-fdsh-admin-ui.php
 
-        // Adjust for main plugin namespace vs generic FDSH_ prefix.
-        if ( strpos( $file_path, 'ForbesDataSyncHub/' ) === 0 ) {
+        if ( strpos( $file_path_segment, 'ForbesDataSyncHub/' ) === 0 ) {
             // PSR-4 like structure: ForbesDataSyncHub\Foo\Bar -> includes/foo/bar.php
-            $file_path = str_replace( 'ForbesDataSyncHub/', 'includes/', $file_path ) . '.php';
-        } else {
-             // Handle FDSH_ prefixed classes (older convention)
-             // FDSH_Foo_Bar -> includes/class-fdsh-foo-bar.php
-            $file_path = 'includes/class-' . strtolower( str_replace( '_', '-', $file_path ) ) . '.php';
-        }
-
-        $full_path = FDSH_PLUGIN_DIR . $file_path;
-
-        if ( file_exists( $full_path ) ) {
-            require_once $full_path;
-            return;
-        }
-
-        // Fallback for FDSH_ prefixed classes that might be in core/
-        // FDSH_Baz -> core/class-fdsh-baz.php
-        if (strpos($class_name, 'FDSH_') === 0 && strpos($file_path, 'includes/') === 0) {
-            $core_file_path = str_replace('includes/', 'core/', $file_path);
-            if (file_exists(FDSH_PLUGIN_DIR . $core_file_path)) {
-                require_once FDSH_PLUGIN_DIR . $core_file_path;
+            $file_path = str_replace( 'ForbesDataSyncHub/', 'includes/', $file_path_segment ) . '.php';
+            if ( file_exists( FDSH_PLUGIN_DIR . $file_path ) ) {
+                require_once FDSH_PLUGIN_DIR . $file_path;
                 return;
             }
-        }
-
-        // Fallback for module classes (simplified)
-        // FDSH_Module_Name_Class_Something -> modules/module-name/class-fdsh-module-name-class-something.php
-        // FDSH_Module_Name_Admin_Page -> modules/module-name/admin/class-fdsh-module-name-admin-page.php
-        $parts = explode( '_', $class_name );
-        if ( count( $parts ) > 2 && $parts[0] === 'FDSH' ) {
-            $module_slug = strtolower( $parts[1] );
-            $class_file_name = 'class-' . strtolower( str_replace( '_', '-', $class_name ) ) . '.php';
-
-            $potential_module_paths = [
-                'modules/' . $module_slug . '/' . $class_file_name,
-                'modules/' . $module_slug . '/includes/' . $class_file_name,
-                'modules/' . $module_slug . '/admin/' . $class_file_name,
-                'modules/' . $module_slug . '/api/' . $class_file_name,
-                'modules/' . $module_slug . '/core/' . $class_file_name,
-            ];
-
-            foreach ( $potential_module_paths as $module_path_segment ) {
-                if ( file_exists( FDSH_PLUGIN_DIR . $module_path_segment ) ) {
-                    require_once FDSH_PLUGIN_DIR . $module_path_segment;
+        } else if (strpos($class_name, 'FDSH_') === 0) {
+            // Handle FDSH_ prefixed classes
+            // Check common locations: includes/, core/, admin/
+            $directories_to_check = ['includes/', 'core/', 'admin/'];
+            foreach ($directories_to_check as $dir) {
+                $full_path = FDSH_PLUGIN_DIR . $dir . $class_file_base;
+                if ( file_exists( $full_path ) ) {
+                    require_once $full_path;
                     return;
+                }
+            }
+
+            // Fallback for module classes (simplified)
+            // FDSH_Module_Name_Class_Something -> modules/module-name/class-fdsh-module-name-class-something.php
+            // FDSH_Module_Name_Admin_Page -> modules/module-name/admin/class-fdsh-module-name-admin-page.php
+            $parts = explode( '_', $class_name );
+            if ( count( $parts ) > 2 && $parts[0] === 'FDSH' ) { // e.g., FDSH_Product_Module
+                $module_slug = strtolower( $parts[1] ); // e.g., product
+                // Construct the class file name based on the full class name
+                // $module_class_file_name = 'class-' . strtolower( str_replace( '_', '-', $class_name ) ) . '.php';
+
+                $potential_module_paths = [
+                    'modules/' . $module_slug . '/' . $class_file_base,
+                    'modules/' . $module_slug . '/includes/' . $class_file_base,
+                    'modules/' . $module_slug . '/admin/' . $class_file_base,
+                    'modules/' . $module_slug . '/api/' . $class_file_base,
+                    'modules/' . $module_slug . '/core/' . $class_file_base,
+                ];
+
+                foreach ( $potential_module_paths as $module_path_segment ) {
+                    if ( file_exists( FDSH_PLUGIN_DIR . $module_path_segment ) ) {
+                        require_once FDSH_PLUGIN_DIR . $module_path_segment;
+                        return;
+                    }
                 }
             }
         }

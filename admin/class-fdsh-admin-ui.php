@@ -91,18 +91,6 @@ class FDSH_Admin_UI {
     }
 
     /**
-     * Placeholder for rendering the Sync Logs page.
-     */
-    // public function render_logs_page() {
-    //     ?>
-    //     <div class="wrap">
-    //         <h1><?php // esc_html_e( 'Sync Logs', 'forbes-data-sync-hub' ); ?></h1>
-    //         <p><?php // esc_html_e( 'Log display will be implemented here.', 'forbes-data-sync-hub' ); ?></p>
-    //     </div>
-    //     <?php
-    // }
-
-    /**
      * Gets the main menu slug.
      * @return string
      */
