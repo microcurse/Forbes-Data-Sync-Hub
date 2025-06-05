@@ -58,10 +58,14 @@ class FDSH_Product_Module {
                 $this->logger->error( 'FDSH_Product_API_Provider class file not found at: ' . $api_provider_file );
             }
         } elseif ( $this->settings_manager->is_client_mode() ) {
-            // Example: Load Client sync logic
-            // require_once FDSH_PLUGIN_DIR . 'modules/product/client/class-fdsh-product-client.php';
-            // FDSH_Product_Client::get_instance();
-            $this->logger->debug( 'Loading Product Module - Client specific dependencies (placeholder).' );
+            $client_file = FDSH_PLUGIN_DIR . 'modules/product/client/class-fdsh-product-client.php';
+            if ( file_exists( $client_file ) ) {
+                require_once $client_file;
+                // We don't instantiate it here globally, but on demand for AJAX calls.
+                $this->logger->debug( 'FDSH_Product_Client class loaded.' );
+            } else {
+                 $this->logger->error( 'FDSH_Product_Client class file not found at: ' . $client_file );
+            }
         }
 
         // Load admin components if in admin area
@@ -93,6 +97,9 @@ class FDSH_Product_Module {
             // 'saved_term' covers both creation and update of any term.
             // We will filter by taxonomy inside the handler.
             add_action( 'saved_term', [ $this, 'handle_attribute_term_save_provider' ], 10, 4 ); // term_id, tt_id, taxonomy, update
+        } elseif ( $this->settings_manager->is_client_mode() ) {
+            add_action( 'wp_ajax_fdsh_sync_attributes', [ $this, 'handle_sync_attributes_ajax' ] );
+            add_action( 'wp_ajax_fdsh_get_provider_attributes', [ $this, 'handle_get_provider_attributes_ajax' ] );
         }
     }
 
@@ -168,6 +175,50 @@ class FDSH_Product_Module {
             // if ( $attribute_id ) {
             //    $this->handle_wc_attribute_definition_save_provider( $attribute_id, [] ); // Pass empty data as it's just for timestamp
             // }
+        }
+    }
+
+    /**
+     * Handles the AJAX request to sync attributes and terms. (Client Mode)
+     * Can sync all attributes or a single one if a slug is provided.
+     */
+    public function handle_sync_attributes_ajax() {
+        check_ajax_referer( 'fdsh_sync_attributes_nonce', 'fdsh_sync_attributes_nonce_field' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( [ 'message' => __( 'You do not have sufficient permissions to perform this action.', 'forbes-data-sync-hub' ) ], 403 );
+        }
+
+        // Check if a specific attribute is being synced
+        $attribute_slug = isset( $_POST['attribute_slug'] ) ? sanitize_text_field( $_POST['attribute_slug'] ) : null;
+
+        $client = new FDSH_Product_Client();
+        $result = $client->sync_attributes_and_terms($attribute_slug);
+
+        if ( $result['success'] ) {
+            wp_send_json_success( [ 'message' => $result['message'] ] );
+        } else {
+            wp_send_json_error( [ 'message' => $result['message'] ], 500 );
+        }
+    }
+
+    /**
+     * Handles the AJAX request to fetch attribute definitions from the provider.
+     */
+    public function handle_get_provider_attributes_ajax() {
+        check_ajax_referer( 'fdsh_get_attributes_nonce', 'fdsh_get_attributes_nonce_field' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( [ 'message' => __( 'You do not have sufficient permissions to perform this action.', 'forbes-data-sync-hub' ) ], 403 );
+        }
+
+        $client = new FDSH_Product_Client();
+        $attributes = $client->get_provider_attributes();
+
+        if ( is_wp_error( $attributes ) ) {
+            wp_send_json_error( [ 'message' => $attributes->get_error_message() ], 500 );
+        } else {
+            wp_send_json_success( $attributes );
         }
     }
 

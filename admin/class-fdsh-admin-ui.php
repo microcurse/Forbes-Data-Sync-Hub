@@ -110,14 +110,42 @@ class FDSH_Admin_UI {
             <h1><?php esc_html_e( 'Product & Attribute Synchronization', 'forbes-data-sync-hub' ); ?></h1>
             <p><?php esc_html_e( 'Use the controls on this page to sync data from the provider site.', 'forbes-data-sync-hub' ); ?></p>
             
+            <div id="fdsh-attribute-sync-wrapper" class="card">
+                <h2><?php esc_html_e( 'Manual Attribute Sync', 'forbes-data-sync-hub' ); ?></h2>
+                <p><?php esc_html_e( 'Select a specific attribute from the provider to sync its definition and all of its terms to this site.', 'forbes-data-sync-hub' ); ?></p>
+                
+                <div style="margin-bottom: 15px;">
+                    <button type="button" id="fdsh_fetch_attributes_button" class="button">
+                        <?php esc_html_e( 'Fetch Attributes from Provider', 'forbes-data-sync-hub' ); ?>
+                    </button>
+                     <?php wp_nonce_field( 'fdsh_get_attributes_nonce', 'fdsh_get_attributes_nonce_field', false ); ?>
+                </div>
+
+                <div id="fdsh-attribute-selector-container" style="display: none;">
+                    <label for="fdsh_attribute_to_sync" style="margin-right: 10px;"><?php esc_html_e( 'Attribute to Sync:', 'forbes-data-sync-hub' ); ?></label>
+                    <select id="fdsh_attribute_to_sync" name="fdsh_attribute_to_sync"></select>
+                    
+                    <button type="button" id="fdsh_sync_selected_attribute_button" class="button button-primary" style="margin-left: 10px;">
+                        <?php esc_html_e( 'Sync Selected Attribute', 'forbes-data-sync-hub' ); ?>
+                    </button>
+                    <?php wp_nonce_field( 'fdsh_sync_attributes_nonce', 'fdsh_sync_attributes_nonce_field', false ); ?>
+                </div>
+                
+                <div id="fdsh_sync_status_container" style="margin-top: 15px;">
+                    <span id="fdsh_sync_attributes_status"></span>
+                </div>
+            </div>
+
+            <!-- Placeholder for the "Sync All" functionality, which could be re-added later -->
+            <!-- 
             <div class="card">
-                <h2><?php esc_html_e( 'Attribute Sync', 'forbes-data-sync-hub' ); ?></h2>
-                <p><?php esc_html_e( 'This will sync all WooCommerce attribute definitions (e.g., Color, Size) and their corresponding terms (e.g., Red, Blue, Small, Large) from the provider site. It will create new attributes and terms that do not exist locally and update existing ones if they have been changed on the provider.', 'forbes-data-sync-hub' ); ?></p>
-                <button type="button" id="fdsh_sync_attributes_button" class="button button-primary">
+                <h2><?php esc_html_e( 'Full Synchronization', 'forbes-data-sync-hub' ); ?></h2>
+                <p><?php esc_html_e( 'This will sync ALL attributes and terms. This can be a long process. It is recommended to use the manual sync above for specific updates.', 'forbes-data-sync-hub' ); ?></p>
+                <button type="button" id="fdsh_sync_all_attributes_button" class="button">
                     <?php esc_html_e( 'Sync All Attributes & Terms', 'forbes-data-sync-hub' ); ?>
                 </button>
-                <span id="fdsh_sync_attributes_status" style="margin-left: 10px;"></span>
             </div>
+            -->
         </div>
         <?php
     }
@@ -153,7 +181,9 @@ class FDSH_Admin_UI {
             'fdsh_admin_vars',
             [
                 'ajax_url' => admin_url( 'admin-ajax.php' ),
-                'test_connection_nonce_name' => 'fdsh_test_connection_nonce_field'
+                'test_connection_nonce_name' => 'fdsh_test_connection_nonce_field',
+                'get_attributes_nonce_name' => 'fdsh_get_attributes_nonce_field',
+                'sync_attributes_nonce_name' => 'fdsh_sync_attributes_nonce_field'
             ]
         );
     }

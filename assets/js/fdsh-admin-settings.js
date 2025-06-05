@@ -58,6 +58,145 @@ jQuery(document).ready(function($) {
         });
     });
 
+    // Sync Attributes handler
+    $('#fdsh_sync_attributes_button').on('click', function(e) {
+        e.preventDefault();
+
+        var $button = $(this);
+        var $status = $('#fdsh_sync_attributes_status');
+        var nonce = $('#' + fdsh_admin_vars.sync_attributes_nonce_name).val();
+
+        $status.html('<span style="color: #0073aa;">' + 'Syncing...' + '</span>').removeClass('fdsh-success fdsh-error');
+        $button.prop('disabled', true);
+
+        var data = {
+            action: 'fdsh_sync_attributes',
+        };
+        data[fdsh_admin_vars.sync_attributes_nonce_name] = nonce;
+
+        $.ajax({
+            url: fdsh_admin_vars.ajax_url,
+            type: 'POST',
+            data: data,
+            success: function(response) {
+                if (response && response.success) {
+                    $status.html('<span style="color: green;">' + response.data.message + '</span>').addClass('fdsh-success');
+                } else {
+                    var errorMessage = 'An unknown error occurred.';
+                    if (response && response.data && response.data.message) {
+                        errorMessage = response.data.message;
+                    }
+                    $status.html('<span style="color: red;">' + 'Error: ' + errorMessage + '</span>').addClass('fdsh-error');
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                var errorMessage = 'AJAX Error: ' + textStatus + ' - ' + errorThrown;
+                if (jqXHR.responseJSON && jqXHR.responseJSON.data && jqXHR.responseJSON.data.message) {
+                    errorMessage = 'Error: ' + jqXHR.responseJSON.data.message;
+                }
+                $status.html('<span style="color: red;">' + errorMessage + '</span>').addClass('fdsh-error');
+            },
+            complete: function() {
+                $button.prop('disabled', false);
+            }
+        });
+    });
+
+    // --- Attribute Sync Handlers ---
+
+    var $syncStatus = $('#fdsh_sync_attributes_status');
+    
+    // 1. Fetch Attributes Button
+    $('#fdsh_fetch_attributes_button').on('click', function(e) {
+        e.preventDefault();
+        var $button = $(this);
+        var nonce = $('#' + fdsh_admin_vars.get_attributes_nonce_name).val();
+
+        $button.prop('disabled', true);
+        $syncStatus.html('<span style="color: #0073aa;">' + 'Fetching attributes from provider...' + '</span>').removeClass('fdsh-success fdsh-error');
+
+        $.ajax({
+            url: fdsh_admin_vars.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'fdsh_get_provider_attributes',
+                [fdsh_admin_vars.get_attributes_nonce_name]: nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    var $select = $('#fdsh_attribute_to_sync');
+                    $select.empty(); // Clear existing options
+                    if (response.data && response.data.length > 0) {
+                        $.each(response.data, function(index, attribute) {
+                            $select.append($('<option>', {
+                                value: attribute.slug,
+                                text: attribute.name + ' (' + attribute.slug + ')'
+                            }));
+                        });
+                        $('#fdsh-attribute-selector-container').slideDown();
+                        $syncStatus.html('<span style="color: green;">' + 'Fetch successful. Please select an attribute to sync.' + '</span>');
+                    } else {
+                        $syncStatus.html('<span style="color: orange;">' + 'Provider has no attributes to sync.' + '</span>');
+                        $('#fdsh-attribute-selector-container').slideUp();
+                    }
+                } else {
+                     $syncStatus.html('<span style="color: red;">' + 'Error: ' + (response.data.message || 'Could not fetch attributes.') + '</span>');
+                }
+            },
+            error: function(jqXHR) {
+                 var errorMessage = 'Error: ' + (jqXHR.responseJSON?.data?.message || 'An unknown AJAX error occurred.');
+                 $syncStatus.html('<span style="color: red;">' + errorMessage + '</span>');
+            },
+            complete: function() {
+                $button.prop('disabled', false);
+            }
+        });
+    });
+
+    // 2. Sync Selected Attribute Button
+    $('#fdsh_sync_selected_attribute_button').on('click', function(e) {
+        e.preventDefault();
+        var $button = $(this);
+        var nonce = $('#' + fdsh_admin_vars.sync_attributes_nonce_name).val();
+        var selectedAttribute = $('#fdsh_attribute_to_sync').val();
+
+        if (!selectedAttribute) {
+            alert('Please select an attribute to sync.');
+            return;
+        }
+
+        $button.prop('disabled', true);
+        $('#fdsh_fetch_attributes_button').prop('disabled', true); // Disable other button during sync
+        $syncStatus.html('<span style="color: #0073aa;">' + 'Syncing attribute ' + selectedAttribute + '...' + '</span>').removeClass('fdsh-success fdsh-error');
+        
+        var data = {
+            action: 'fdsh_sync_attributes',
+            attribute_slug: selectedAttribute
+        };
+        data[fdsh_admin_vars.sync_attributes_nonce_name] = nonce;
+
+        $.ajax({
+            url: fdsh_admin_vars.ajax_url,
+            type: 'POST',
+            data: data,
+            success: function(response) {
+                if (response.success) {
+                    $syncStatus.html('<span style="color: green;">' + response.data.message + '</span>').addClass('fdsh-success');
+                } else {
+                    $syncStatus.html('<span style="color: red;">' + 'Error: ' + (response.data.message || 'An unknown error occurred.') + '</span>').addClass('fdsh-error');
+                }
+            },
+            error: function(jqXHR) {
+                var errorMessage = 'Error: ' + (jqXHR.responseJSON?.data?.message || 'An unknown AJAX error occurred.');
+                $syncStatus.html('<span style="color: red;">' + errorMessage + '</span>');
+            },
+            complete: function() {
+                $button.prop('disabled', false);
+                $('#fdsh_fetch_attributes_button').prop('disabled', false);
+            }
+        });
+    });
+
     // Show/hide settings based on plugin role
     function toggleRoleSettings() {
         var role = $('#fdsh_plugin_role').val();
