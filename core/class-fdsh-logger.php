@@ -34,6 +34,9 @@ class FDSH_Logger {
             wp_mkdir_p( $this->log_file_path );
         }
 
+        // TODO: Implement database logging for admin-viewable logs (INFO, WARNING, ERROR)
+        // as per README section 10. This will require a custom table and UI for viewing/pruning.
+
         // Secure the log directory by adding an index.php and .htaccess file if not present.
         $this->secure_log_directory();
         $this->rotate_logs();

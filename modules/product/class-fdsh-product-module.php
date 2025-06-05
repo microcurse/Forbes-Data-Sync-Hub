@@ -120,12 +120,15 @@ class FDSH_Product_Module {
      * @param array $attribute_data Attribute data (passed by WooCommerce hooks).
      */
     public function handle_wc_attribute_definition_save_provider( $attribute_id, $attribute_data ) {
-        // WooCommerce stores attribute definitions in its own table: wp_woocommerce_attribute_taxonomies
-        // We need a way to store meta against this attribute definition.
-        // A common approach is to use a dedicated option or a custom table.
-        // For simplicity, let's use an option where keys are attribute IDs.
+        // WooCommerce attribute definitions (e.g., "Color", "Size") are stored in the
+        // wp_woocommerce_attribute_taxonomies table, not as standard WordPress terms.
+        // Therefore, storing a "modified_gmt" timestamp for these definitions is best done
+        // via an option keyed by the attribute_id from that table.
+        // The FDSH_Product_API_Provider will be responsible for fetching this timestamp
+        // and presenting it in a term-like structure (e.g., with `id` as attribute_id and `modified_gmt`)
+        // in the API response, as outlined in the README.md (section 9.2, Attr. Definition).
 
-        $option_name = 'fdsh_attribute_modified_gmt_tracking'; // Option stores an array [id => timestamp]
+        $option_name = 'fdsh_attribute_modified_gmt_tracking'; // Option stores an array [attribute_id => timestamp]
         $timestamps = get_option( $option_name, [] );
         if (!is_array($timestamps)) { // Ensure it's an array
             $timestamps = [];

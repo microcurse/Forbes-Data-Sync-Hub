@@ -32,6 +32,11 @@ if ( defined( 'WP_PLUGIN_DIR' ) && file_exists( WP_PLUGIN_DIR . '/' . plugin_bas
 }
 define( 'FDSH_TEXT_DOMAIN', 'forbes-data-sync-hub' );
 
+// Define FDSH_DEBUG - can be overridden in wp-config.php
+if ( ! defined( 'FDSH_DEBUG' ) ) {
+    define( 'FDSH_DEBUG', false );
+}
+
 // Basic autoloader.
 spl_autoload_register( function ( $class_name ) {
     // Only autoload classes from this plugin.

@@ -267,7 +267,15 @@ class FDSH_Settings_Manager {
             <?php esc_html_e( 'Click to test the connection to the Source API using the provided URL and Application Password.', 'forbes-data-sync-hub' ); ?>
         </p>
         <?php
-        // JavaScript for the Test Connection button will be added later.
+        // TODO: Implement AJAX handler for 'Test Connection' button.
+        // This will involve:
+        // 1. Enqueueing a JS file for this admin page.
+        // 2. JS to make an AJAX call (using FDSH_AJAX_Handler conventions) to a new action (e.g., 'fdsh_test_connection').
+        // 3. A new method in an appropriate AJAX handler class (e.g., a new FDSH_Admin_AJAX_Handler or similar)
+        //    to handle 'fdsh_test_connection', verify nonce, check permissions.
+        // 4. The handler method will attempt a remote request to the provided API URL with basic auth (app password).
+        // 5. Return JSON success/error based on the remote request's outcome (e.g., HTTP 200, specific body content).
+        // 6. JS to update #fdsh_test_connection_status with the result.
     }
 
     /**
