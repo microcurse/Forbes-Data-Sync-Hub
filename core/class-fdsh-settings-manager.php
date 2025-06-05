@@ -25,6 +25,9 @@ class FDSH_Settings_Manager {
 
         // Register settings
         add_action( 'admin_init', [ $this, 'register_settings' ] );
+
+        // Register AJAX handler for testing connection
+        add_action( 'wp_ajax_fdsh_test_connection', [ $this, 'handle_test_connection_ajax' ] );
     }
 
     /**
@@ -82,6 +85,14 @@ class FDSH_Settings_Manager {
             [ $this, 'render_client_source_api_url_field' ],
             $this->settings_group,
             'fdsh_general_section' // Or a new section specific to Client
+        );
+
+        add_settings_field(
+            'fdsh_client_app_username',
+            __( 'Application Username', 'forbes-data-sync-hub' ),
+            [ $this, 'render_client_app_username_field' ],
+            $this->settings_group,
+            'fdsh_general_section'
         );
 
         add_settings_field(
@@ -151,6 +162,9 @@ class FDSH_Settings_Manager {
             if ( isset( $input['client_source_api_url'] ) ) {
                 $new_input['client_source_api_url'] = esc_url_raw( trim( $input['client_source_api_url'] ) );
             }
+            if ( isset( $input['client_app_username'] ) ) {
+                $new_input['client_app_username'] = sanitize_text_field( trim( $input['client_app_username'] ) );
+            }
             if ( isset( $input['client_app_password'] ) ) {
                 // Passwords are typically not re-sanitized beyond trimming if they are non-empty.
                 // WordPress itself doesn't re-sanitize passwords from options.php.
@@ -167,6 +181,7 @@ class FDSH_Settings_Manager {
             // they won't be added to $new_input, and array_merge below will keep old $this->options values.
             // To explicitly clear:
             // $new_input['client_source_api_url'] = '';
+            // $new_input['client_app_username'] = '';
             // $new_input['client_app_password'] = '';
             // For now, let's rely on them not being in $input if not in client view,
             // and if role changes, they might be submitted as empty or not at all.
@@ -185,6 +200,9 @@ class FDSH_Settings_Manager {
                  // we should probably clear them.
                 if (array_key_exists('client_source_api_url', $input)) {
                     $new_input['client_source_api_url'] = ''; // Clear it
+                }
+                if (array_key_exists('client_app_username', $input)) {
+                    $new_input['client_app_username'] = ''; // Clear it
                 }
                 if (array_key_exists('client_app_password', $input)) {
                     $new_input['client_app_password'] = ''; // Clear it
@@ -223,9 +241,25 @@ class FDSH_Settings_Manager {
         }
         $value = $this->get_setting( 'client_source_api_url', '' );
         ?>
-        <input type="url" name="<?php echo esc_attr( $this->general_settings_key ); ?>[client_source_api_url]" id="fdsh_client_source_api_url" value="<?php echo esc_url( $value ); ?>" class="regular-text">
+        <input type="url" name="<?php echo esc_attr( $this->general_settings_key ); ?>[client_source_api_url]" id="fdsh_client_source_api_url" value="<?php echo esc_url( $value ); ?>" class="regular-text" placeholder="https://source.com/wp-json/">
         <p class="description">
-            <?php esc_html_e( 'Enter the full REST API URL of the Source Site (e.g., https://source.com/wp-json/).', 'forbes-data-sync-hub' ); ?>
+            <?php esc_html_e( 'Enter the URL of the source site\'s REST API. The plugin will automatically append /wp-json/ if it seems to be missing.', 'forbes-data-sync-hub' ); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Renders the Application Username field for Client Mode.
+     */
+    public function render_client_app_username_field() {
+        if ( ! $this->is_client_mode() ) {
+            return;
+        }
+        $value = $this->get_setting( 'client_app_username', '' );
+        ?>
+        <input type="text" name="<?php echo esc_attr( $this->general_settings_key ); ?>[client_app_username]" id="fdsh_client_app_username" value="<?php echo esc_attr( $value ); ?>" class="regular-text">
+        <p class="description">
+            <?php esc_html_e( 'Enter the username of the account on the Source Site that generated the Application Password.', 'forbes-data-sync-hub' ); ?>
         </p>
         <?php
     }
@@ -259,23 +293,104 @@ class FDSH_Settings_Manager {
             return;
         }
         ?>
-        <button type="button" class="button" id="fdsh_test_connection_button">
+        <button type="button" id="fdsh_test_connection_button" class="button">
             <?php esc_html_e( 'Test Connection', 'forbes-data-sync-hub' ); ?>
         </button>
-        <span id="fdsh_test_connection_status"></span>
+        <span id="fdsh_test_connection_status" style="margin-left: 10px;"></span>
+        <?php
+        // Add a nonce field for security
+        wp_nonce_field( 'fdsh_test_connection_nonce', 'fdsh_test_connection_nonce_field', false );
+        ?>
         <p class="description">
-            <?php esc_html_e( 'Click to test the connection to the Source API using the provided URL and Application Password.', 'forbes-data-sync-hub' ); ?>
+            <?php esc_html_e( 'Click to verify connectivity with the Source API URL and Application Password.', 'forbes-data-sync-hub' ); ?>
         </p>
         <?php
-        // TODO: Implement AJAX handler for 'Test Connection' button.
-        // This will involve:
-        // 1. Enqueueing a JS file for this admin page.
-        // 2. JS to make an AJAX call (using FDSH_AJAX_Handler conventions) to a new action (e.g., 'fdsh_test_connection').
-        // 3. A new method in an appropriate AJAX handler class (e.g., a new FDSH_Admin_AJAX_Handler or similar)
-        //    to handle 'fdsh_test_connection', verify nonce, check permissions.
-        // 4. The handler method will attempt a remote request to the provided API URL with basic auth (app password).
-        // 5. Return JSON success/error based on the remote request's outcome (e.g., HTTP 200, specific body content).
-        // 6. JS to update #fdsh_test_connection_status with the result.
+    }
+
+    /**
+     * Handles the AJAX request for testing the API connection.
+     */
+    public function handle_test_connection_ajax() {
+        // Verify nonce
+        check_ajax_referer( 'fdsh_test_connection_nonce', 'fdsh_test_connection_nonce_field' );
+
+        // Check user capabilities
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'You do not have permission to perform this action.', 'forbes-data-sync-hub' ), 403 );
+        }
+
+        // Get data from POST request
+        $raw_api_url = isset( $_POST['api_url'] ) ? trim( $_POST['api_url'] ) : '';
+        $api_url = esc_url_raw( $raw_api_url );
+        $app_username = isset( $_POST['app_username'] ) ? sanitize_text_field( trim( $_POST['app_username'] ) ) : '';
+        $app_password = isset( $_POST['app_password'] ) ? sanitize_text_field( trim( $_POST['app_password'] ) ) : '';
+
+        if ( empty( $raw_api_url ) ) {
+            wp_send_json_error( __( 'The API URL is required.', 'forbes-data-sync-hub' ), 400 );
+        }
+        if ( empty( $api_url ) && ! empty( $raw_api_url ) ) {
+            wp_send_json_error( __( 'The provided API URL is not a valid URL. Please check the format (e.g., https://source.com/wp-json/).', 'forbes-data-sync-hub' ), 400 );
+        }
+        if ( empty( $app_username ) ) {
+            wp_send_json_error( __( 'The Application Username is required.', 'forbes-data-sync-hub' ), 400 );
+        }
+        if ( empty( $app_password ) ) {
+            wp_send_json_error( __( 'The Application Password is required.', 'forbes-data-sync-hub' ), 400 );
+        }
+
+        $test_api_url = $api_url;
+        // Be flexible: if the user provides the base site URL, add the /wp-json/ part for them.
+        if ( strpos( $test_api_url, 'wp-json' ) === false ) {
+            $test_api_url = rtrim( $test_api_url, '/' ) . '/wp-json/';
+        }
+
+        $args = [
+            'headers' => [
+                'Authorization' => 'Basic ' . base64_encode( $app_username . ':' . $app_password ),
+            ],
+            'timeout' => 15, // seconds
+        ];
+
+        $response = wp_remote_get( $test_api_url, $args );
+
+        if ( is_wp_error( $response ) ) {
+            wp_send_json_error(
+                sprintf(
+                    __( 'Connection Error: %s', 'forbes-data-sync-hub' ),
+                    $response->get_error_message()
+                ),
+                500
+            );
+        }
+
+        $status_code = wp_remote_retrieve_response_code( $response );
+        $body = wp_remote_retrieve_body( $response );
+
+        if ( $status_code >= 200 && $status_code < 300 ) {
+            $data = json_decode( $body, true );
+            if ( json_last_error() === JSON_ERROR_NONE && isset( $data['name'] ) && isset($data['namespaces']) ) {
+                 wp_send_json_success( __( 'Connection successful! Site responded correctly.', 'forbes-data-sync-hub' ) );
+            } else {
+                 wp_send_json_success( sprintf(__( 'Connection successful (HTTP %s), but response was not as expected for a WordPress REST API root. Please ensure the URL points to the /wp-json/ endpoint of the source site.', 'forbes-data-sync-hub' ), $status_code ));
+            }
+
+        } else {
+            $error_message = sprintf(
+                __( 'Connection failed. Status code: %s.', 'forbes-data-sync-hub' ),
+                $status_code
+            );
+            if ( $status_code === 401 || $status_code === 403 ) {
+                $error_message .= ' ' . __( 'Please check your Application Password.', 'forbes-data-sync-hub' );
+            } elseif ( $status_code === 404 ) {
+                $error_message .= ' ' . __( 'Please ensure the API URL is correct and the REST API is enabled on the source site.', 'forbes-data-sync-hub' );
+            }
+            $data = json_decode( $body, true );
+            if (json_last_error() === JSON_ERROR_NONE && isset($data['message'])) {
+                $error_message .= ' Details: ' . esc_html($data['message']);
+            }
+
+            wp_send_json_error( $error_message, $status_code );
+        }
     }
 
     /**

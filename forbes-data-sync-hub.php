@@ -116,7 +116,15 @@ if ( is_admin() ) { // Only load admin-specific components on admin pages
     FDSH_Admin_UI::get_instance();
 }
 
-// Initialize Product Module
-FDSH_Product_Module::get_instance();
+/**
+ * Initializes the modules of the plugin.
+ *
+ * This function is hooked to 'plugins_loaded' to ensure that all dependent plugins and WordPress functions are available.
+ */
+function fdsh_initialize_modules() {
+    // Initialize Product Module
+    FDSH_Product_Module::get_instance();
+}
+add_action( 'plugins_loaded', 'fdsh_initialize_modules' );
 
 ?>

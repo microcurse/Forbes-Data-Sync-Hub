@@ -90,3 +90,22 @@ The primary focus has been on establishing the core plugin infrastructure and th
 *   Product API Provider: `plugins/Forbes-Data-Sync-Hub/modules/product/api/class-fdsh-product-api-provider.php` (This file contains the recently modified `get_product` method).
 
 This summary, along with the `README.md` file, should give the new AI instance a good understanding of the project's progress.
+
+---
+### **Update (Post-Handoff): Phase 1.2 - "Test Connection" Feature Complete**
+
+The "Test Connection" button on the General Settings page (for Client Mode) is now fully functional.
+
+**5. "Test Connection" AJAX Functionality (`FDSH_Settings_Manager` & `FDSH_Admin_UI`):**
+*   **Objective:** Provide administrators with immediate feedback on the validity of their API connection settings.
+*   **Implementation Steps:**
+    1.  **Added "Application Username" Field:** The initial implementation using only the Application Password failed with a `401 Unauthorized` error, specifically "Unknown username." This indicated the provider site requires the associated username for Basic Authentication. A new "Application Username" field was added to the settings page and the sanitization routine in `FDSH_Settings_Manager`.
+    2.  **AJAX Handler:** An AJAX action `fdsh_test_connection` and a corresponding handler `handle_test_connection_ajax` were added to `FDSH_Settings_Manager`.
+    3.  **Authentication:** The handler now correctly uses the API URL, Application Username, and Application Password to construct a `Basic` authentication header for its `wp_remote_get` request.
+    4.  **JavaScript Integration:** The `FDSH_Admin_UI` class was updated to enqueue `assets/js/fdsh-admin-settings.js` on the settings page. This new JS file handles the button click, gathers the three required fields (URL, Username, Password), and sends them to the AJAX handler.
+    5.  **Dynamic UI:** The JavaScript file also includes logic to dynamically show/hide the Provider and Client specific fields based on the "Plugin Role" dropdown, improving the user experience.
+*   **Debugging & Refinements:**
+    *   **401 Error ("Unknown username"):** Resolved by adding the Application Username field.
+    *   **404 Error ("No route was found"):** Resolved by fixing an issue where the code was incorrectly appending `/wp-json/` to a URL that already contained it. The logic was then improved to intelligently add `/wp-json/` only if it's missing, making the URL input more flexible for the user.
+    *   **Empty Field Errors:** Improved both front-end (JavaScript) and back-end (PHP) validation to provide clearer error messages if any of the required fields are empty or if the URL format is invalid.
+*   **Result:** The "Test Connection" button now provides clear, immediate feedback, successfully validating the connection against the provider site's REST API root. This completes a key part of the core infrastructure outlined in Phase 1.2.
